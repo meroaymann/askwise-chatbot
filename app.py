@@ -6,7 +6,7 @@ from groq import Groq
 # Load the API key and model name from .env
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="public/static", static_url_path="/static")
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
