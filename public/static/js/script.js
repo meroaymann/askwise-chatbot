@@ -1,6 +1,8 @@
 // ---------- Icons ----------
 const BOT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>`;
 const TRASH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>`;
+const COPY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;
+const CHECK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
 
 // ---------- Elements ----------
 const chat = document.getElementById("chat");
@@ -93,6 +95,7 @@ function renderChatList() {
 
     const title = document.createElement("span");
     title.className = "chat-title";
+    title.dir = "auto";
     title.textContent = c.title;
 
     const date = document.createElement("span");
@@ -197,6 +200,44 @@ function autoResize() {
   input.style.height = input.scrollHeight + "px";
 }
 
+// ---------- Message action buttons (copy) ----------
+function createActions(text) {
+  const actions = document.createElement("div");
+  actions.className = "msg-actions";
+
+  // Copy button
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "action-btn";
+  copyBtn.title = "Copy reply";
+  copyBtn.innerHTML = `${COPY_ICON}<span>Copy</span>`;
+
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.innerHTML = `${CHECK_ICON}<span>Copied!</span>`;
+    } catch (e) {
+      copyBtn.innerHTML = `${COPY_ICON}<span>Failed</span>`;
+    }
+    setTimeout(() => {
+      copyBtn.innerHTML = `${COPY_ICON}<span>Copy</span>`;
+    }, 1500);
+  });
+
+  actions.appendChild(copyBtn);
+
+  // Listen (read aloud) button
+  if ("speechSynthesis" in window) {
+    const listenBtn = document.createElement("button");
+    listenBtn.className = "action-btn";
+    listenBtn.title = "Read aloud";
+    listenBtn.innerHTML = `${SPEAKER_ICON}<span>Listen</span>`;
+    listenBtn.addEventListener("click", () => toggleSpeak(text, listenBtn));
+    actions.appendChild(listenBtn);
+  }
+
+  return actions;
+}
+
 // ---------- Messages ----------
 function addMessage(role, text, isError = false) {
   welcome.classList.add("hidden");
@@ -204,23 +245,28 @@ function addMessage(role, text, isError = false) {
   const row = document.createElement("div");
   row.className = `message ${role}`;
 
+  const bubble = document.createElement("div");
+  bubble.className = "bubble" + (isError ? " error" : "");
+  bubble.dir = "auto"; // Arabic shows right-to-left automatically
+
   if (role === "bot") {
     const avatar = document.createElement("div");
     avatar.className = "avatar";
     avatar.innerHTML = BOT_ICON;
     row.appendChild(avatar);
-  }
 
-  const bubble = document.createElement("div");
-  bubble.className = "bubble" + (isError ? " error" : "");
-
-  if (role === "bot") {
     bubble.innerHTML = renderMarkdown(text); // formatted bot reply
+
+    const content = document.createElement("div");
+    content.className = "bot-content";
+    content.appendChild(bubble);
+    if (!isError) content.appendChild(createActions(text));
+    row.appendChild(content);
   } else {
-    bubble.textContent = text;               // user text shown as plain text
+    bubble.textContent = text; // user text shown as plain text
+    row.appendChild(bubble);
   }
 
-  row.appendChild(bubble);
   chat.appendChild(row);
   scrollToBottom();
 }
@@ -328,3 +374,176 @@ themeToggle.addEventListener("click", () => {
 
 // ---------- Start ----------
 renderChatList();
+
+// ================= VOICE =================
+
+// ---------- Voice icons ----------
+const SPEAKER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>`;
+const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+
+// ---------- Read replies aloud (text-to-speech) ----------
+let speakingBtn = null;
+
+function resetListenBtn(btn) {
+  if (btn) btn.innerHTML = `${SPEAKER_ICON}<span>Listen</span>`;
+}
+
+function stopSpeaking() {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  resetListenBtn(speakingBtn);
+  speakingBtn = null;
+}
+
+// Turn the formatted reply into plain text (skip code blocks)
+function plainText(markdown) {
+  const div = document.createElement("div");
+  div.innerHTML = renderMarkdown(markdown);
+  div.querySelectorAll("pre").forEach((p) => p.replaceWith(" (code block) "));
+  return div.textContent.replace(/\s+/g, " ").trim();
+}
+
+function toggleSpeak(text, btn) {
+  const wasThisOne = speakingBtn === btn;
+  stopSpeaking();
+  if (wasThisOne) return; // clicking "Stop" just stops
+
+  const clean = plainText(text);
+  const lang = /[\u0600-\u06FF]/.test(clean) ? "ar-EG" : "en-US"; // Arabic letters → Arabic voice
+
+  // Speak sentence by sentence (long text can cut off in some browsers)
+  const parts = (clean.match(/[^.!?؟]+[.!?؟]*/g) || [clean]).filter((p) => p.trim());
+
+  parts.forEach((part, i) => {
+    const utterance = new SpeechSynthesisUtterance(part.trim());
+    utterance.lang = lang;
+    if (i === parts.length - 1) {
+      utterance.onend = () => {
+        if (speakingBtn === btn) {
+          resetListenBtn(btn);
+          speakingBtn = null;
+        }
+      };
+    }
+    window.speechSynthesis.speak(utterance);
+  });
+
+  speakingBtn = btn;
+  btn.innerHTML = `${STOP_ICON}<span>Stop</span>`;
+}
+
+// Stop reading when switching or starting chats
+newChatSidebarBtn.addEventListener("click", stopSpeaking);
+clearBtn.addEventListener("click", stopSpeaking);
+chatList.addEventListener("click", stopSpeaking);
+
+// ---------- Voice input (speech-to-text) ----------
+const micBtn = document.getElementById("micBtn");
+const voiceLangBtn = document.getElementById("voiceLangBtn");
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let voiceLang = "en-US";
+try { voiceLang = localStorage.getItem("voiceLang") || "en-US"; } catch (e) {}
+
+function updateLangBtn() {
+  const isArabic = voiceLang === "ar-EG";
+  voiceLangBtn.textContent = isArabic ? "ع" : "EN";
+  voiceLangBtn.title = isArabic ? "Voice language: Arabic" : "Voice language: English";
+}
+updateLangBtn();
+
+voiceLangBtn.addEventListener("click", () => {
+  voiceLang = voiceLang === "en-US" ? "ar-EG" : "en-US";
+  try { localStorage.setItem("voiceLang", voiceLang); } catch (e) {}
+  updateLangBtn();
+});
+
+if (!SpeechRecognition) {
+  // Browser doesn't support voice input → hide the buttons
+  micBtn.style.display = "none";
+  voiceLangBtn.style.display = "none";
+} else {
+  const recognition = new SpeechRecognition();
+  recognition.interimResults = true; // show words while speaking
+  recognition.continuous = false;    // stop when the user stops talking
+
+  let isListening = false;
+  let finalText = "";
+
+  recognition.onstart = () => {
+    isListening = true;
+    finalText = "";
+    micBtn.classList.add("listening");
+    input.placeholder = voiceLang === "ar-EG" ? "...جاري الاستماع" : "Listening...";
+  };
+
+  recognition.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const transcript = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += transcript;
+      else interim += transcript;
+    }
+    input.value = finalText + interim;
+    autoResize();
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === "not-allowed") {
+      alert("Microphone access is blocked. Click the 🔒 icon in the address bar and allow the microphone.");
+    }
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    micBtn.classList.remove("listening");
+    input.placeholder = "Type your message...";
+    if (finalText.trim()) sendMessage(finalText); // send automatically
+  };
+
+  micBtn.addEventListener("click", () => {
+    if (isWaiting) return;
+    if (isListening) {
+      recognition.stop();
+      return;
+    }
+    stopSpeaking();
+    recognition.lang = voiceLang;
+    try { recognition.start(); } catch (e) {}
+  });
+}
+
+// ================= CHAT THEMES =================
+const paletteBtn = document.getElementById("paletteBtn");
+const paletteMenu = document.getElementById("paletteMenu");
+const swatches = document.querySelectorAll(".swatch");
+
+function setAccent(name) {
+  document.documentElement.setAttribute("data-accent", name);
+  swatches.forEach((s) => s.classList.toggle("active", s.dataset.accent === name));
+  try { localStorage.setItem("accent", name); } catch (e) {}
+}
+
+let savedAccent = null;
+try { savedAccent = localStorage.getItem("accent"); } catch (e) {}
+setAccent(savedAccent || "violet");
+
+paletteBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  paletteMenu.classList.toggle("open");
+});
+
+swatches.forEach((s) => {
+  s.addEventListener("click", () => {
+    setAccent(s.dataset.accent);
+    paletteMenu.classList.remove("open");
+  });
+});
+
+// Close the menu when clicking outside it, or pressing Escape
+document.addEventListener("click", (e) => {
+  if (!paletteMenu.contains(e.target)) paletteMenu.classList.remove("open");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") paletteMenu.classList.remove("open");
+});

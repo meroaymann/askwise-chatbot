@@ -69,7 +69,29 @@
               </div>
             </div>
           </div>
-          <div class="actions">
+                    <div class="actions">
+            <!-- Theme color picker -->
+            <div class="theme-picker">
+              <button id="paletteBtn" class="icon-btn" title="Chat theme" aria-label="Choose chat theme">🎨</button>
+              <div id="paletteMenu" class="palette-menu">
+                <span class="palette-title">Chat theme</span>
+                <div class="swatches">
+                  <button class="swatch" data-accent="violet" title="Violet" aria-label="Violet theme">
+                    <span style="--a:#6c5ce7; --b:#a66cff"></span>
+                  </button>
+                  <button class="swatch" data-accent="ocean" title="Ocean" aria-label="Ocean theme">
+                    <span style="--a:#2563eb; --b:#06b6d4"></span>
+                  </button>
+                  <button class="swatch" data-accent="emerald" title="Emerald" aria-label="Emerald theme">
+                    <span style="--a:#059669; --b:#14b8a6"></span>
+                  </button>
+                  <button class="swatch" data-accent="sunset" title="Sunset" aria-label="Sunset theme">
+                    <span style="--a:#ea580c; --b:#db2777"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <button id="themeToggle" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
             <button id="clearChat" class="icon-btn" title="New chat" aria-label="New chat">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -101,8 +123,20 @@
         </main>
 
         <!-- Message input -->
-        <form id="chatForm" class="composer">
+                <form id="chatForm" class="composer">
           <textarea id="userInput" rows="1" placeholder="Type your message..."></textarea>
+
+          <!-- Voice language: EN / Arabic -->
+          <button type="button" id="voiceLangBtn" class="lang-btn" title="Voice language: English" aria-label="Switch voice language">EN</button>
+
+          <!-- Microphone -->
+          <button type="button" id="micBtn" class="mic-btn" title="Speak your message" aria-label="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/>
+            </svg>
+          </button>
+
           <button type="submit" id="sendBtn" class="send-btn" aria-label="Send">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/>
